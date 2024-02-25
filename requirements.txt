@@ -1,0 +1,13 @@
+tensorflow==2.11.0
+keras==2.11.0
+numpy
+pandas
+matplotlib
+flask
+flask_cors
+Flask_JWT
+pymongo
+gunicorn
+scikit-learn
+seaborn
+pymongo[srv]
