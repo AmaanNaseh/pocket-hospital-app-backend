@@ -5,7 +5,7 @@ pandas
 matplotlib
 flask
 flask_cors
-Flask_JWT
+Flask-JWT
 pymongo
 gunicorn
 scikit-learn
