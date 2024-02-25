@@ -6,6 +6,7 @@ matplotlib
 flask
 flask_cors
 Flask-JWT
+flask-jwt-extended
 pymongo
 gunicorn
 scikit-learn
