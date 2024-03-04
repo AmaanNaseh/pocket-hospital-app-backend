@@ -70,8 +70,6 @@ class_label4_4 = ["Tuberculosis Detected", "Normal"]
 
 #controllers function
 def find_data(collection,email):
-    print(collection)
-    print(email)
     try:
         data = db[collection].find_one({'email': email})
         return data
@@ -283,22 +281,7 @@ def predict():
 ##############################################################################################################################################
 
 
-    '''save_path = 'uploads'
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
 
-    file_path = os.path.join(save_path, 'uploaded_image.jpg')
-
-    with open(file_path, 'wb') as f:
-        f.write(image_data)
-
-    loaded_image = load_image('D:/projects/MachineLearning/HackJMI/uploads/uploaded_image.jpg')
-    prediction = model.predict(loaded_image)
-    class_id = np.argmax(prediction, axis=1) #max value
-    output=class_label[int(class_id)]#id wrt dataset
-    output=str(output)
-    return jsonify({'disease':output}),200
-'''
 
 
 @app.route('/login',methods=['POST'])
@@ -334,10 +317,8 @@ def login():
 @app.route('/register',methods=['POST'])
 def register():
     body=request.get_json()
-    print(body)
 
     dbVal=find_data(body['person'],body['email'])
-    print(dbVal)
     if dbVal!=None:
         res=jsonify({"message":"user with that email already exits"})
         res.status_code=404
@@ -375,31 +356,87 @@ def fetch_patient_details():
     return res
 
 
-@app.route('/book',methods=['POST'])
+@app.route('/bookappointment',methods=['POST'])
 def book():
     body=request.get_json()
-    # try:
-    #     verify_jwt_in_request() 
-    # except Exception as e:
-    #     return jsonify({'message': 'Unauthorized'}), 401
-
-    # user = get_jwt_identity()
+    try:
+        verify_jwt_in_request() 
+    except Exception as e:
+        return jsonify({'message': 'Unauthorized'}), 401
+    user = get_jwt_identity()
     #check for the availability of
-    del body['doctor']
-
-    doctor_details=db['doctor'].find_one({"specialization":body['doctor']})
+    all_doctor_details=db['doctor'].find({"specialization":body['doctor']})
+    all_doctor_details=list(all_doctor_details)
+    doctor_details=all_doctor_details[0]
     del doctor_details['password']
     del doctor_details['_id']
-    # patient_details=db['patient'].find_one({"email":user['email']})
-    # del doctor_details['password']
-    # del doctor_details['_id']
 
-    # body['patientDetails']=patient_details
-    body['doctorDetails']=doctor_details
-    body['status']='pending'
-    print(body)
-    db['appointment'].insert_one(body)
-    return 
+    patient_details=db['patient'].find_one({"email":user['email']})
+    del patient_details['_id']
+    del patient_details['password']
+
+    storePayload={
+        'doctor':doctor_details,
+        'patientDetails':patient_details,
+        'symptoms':body['symptoms'],
+        'date':body['date'],
+        'status':'pending',
+    }
+
+
+
+    db['temp_appointment'].insert_one(storePayload)
+    res=jsonify({"success":True})
+    res.status_code=200
+    return res
+
+
+@app.route('/appointmentRequest')
+def temp_appointment():
+    try:
+        verify_jwt_in_request() 
+    except Exception as e:
+        return jsonify({'message': 'Unauthorized'}), 401
+    user = get_jwt_identity()
+    if user:
+        temp_appointments=db['temp_appointment'].find({"doctor.email":user['email']})
+        temp_appointments=list(temp_appointments)
+
+        for e in temp_appointments:
+            e.pop('_id', None)
+
+        res=jsonify({"data":temp_appointments})
+        res.status_code=200
+        return res
+    else:
+         return jsonify({'message': 'Unauthorized'}), 404
+
+
+@app.route('/appointmentRequest/accept',methods=['POST'])
+def acceptAppointment():
+    body=request.get_json()
+    try:
+        verify_jwt_in_request() 
+    except Exception as e:
+        return jsonify({'message': 'Unauthorized'}), 401
+    user = get_jwt_identity()
+    if user:
+        appointment=db['temp_appointment'].find_one({"$and":[{"patientDetails.email":body['patientEmail']},{"doctor.email":user['email']}]})
+        del appointment['_id']
+        db['appointment'].insert_one(appointment)
+
+        db['temp_appointment'].delete_one({"$and":[{"patientDetails.email":body['patientEmail']},{"doctor.email":user['email']}]})
+
+        res=jsonify({"success ":True})
+        res.status_code=200
+        return res
+    else:
+         return jsonify({'message': 'Unauthorized'}), 404
+
+
+# @app.route('/appointmentRequest/reject',methods=['POST'])
+# def rejectAppointment():
+
 
 
 @app.route('/details/doctor')
@@ -417,6 +454,7 @@ def doctor_details():
     res=jsonify({"data":doctor_details})
     res.status_code=200
     return res
+
 
 
 if __name__=='__main__':
